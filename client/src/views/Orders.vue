@@ -5,6 +5,42 @@
       <p>{{ t('orders.description') }}</p>
     </div>
 
+    <div class="card restock-orders-card">
+      <div class="card-header">
+        <h3 class="card-title">Submitted Restock Orders</h3>
+      </div>
+      <div v-if="restockOrdersLoading" class="loading">Loading...</div>
+      <div v-else-if="restockOrders.length === 0" class="empty-restock">No restock orders submitted yet.</div>
+      <div v-else class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Order #</th>
+              <th>Created</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Lead Time</th>
+              <th>Expected Delivery</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="order in restockOrders" :key="order.id">
+              <td><strong>{{ order.order_number }}</strong></td>
+              <td>{{ formatDate(order.created_date) }}</td>
+              <td>{{ order.items.length }} items</td>
+              <td><strong>{{ formatCurrency(order.total_value) }}</strong></td>
+              <td>{{ order.lead_time_days }} days</td>
+              <td>{{ formatDate(order.expected_delivery) }}</td>
+              <td>
+                <span class="badge info">{{ order.status }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else>
@@ -95,6 +131,8 @@ export default {
     const loading = ref(true)
     const error = ref(null)
     const orders = ref([])
+    const restockOrders = ref([])
+    const restockOrdersLoading = ref(false)
 
     // Use shared filters
     const {
@@ -104,6 +142,21 @@ export default {
       selectedStatus,
       getCurrentFilters
     } = useFilters()
+
+    const loadRestockOrders = async () => {
+      restockOrdersLoading.value = true
+      try {
+        restockOrders.value = await api.getRestockOrders()
+      } catch (err) {
+        console.error('Failed to load restock orders:', err)
+      } finally {
+        restockOrdersLoading.value = false
+      }
+    }
+
+    const formatCurrency = (value) => {
+      return value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+    }
 
     const loadOrders = async () => {
       try {
@@ -153,16 +206,22 @@ export default {
       })
     }
 
-    onMounted(loadOrders)
+    onMounted(() => {
+      loadOrders()
+      loadRestockOrders()
+    })
 
     return {
       t,
       loading,
       error,
       orders,
+      restockOrders,
+      restockOrdersLoading,
       getOrdersByStatus,
       getOrderStatusClass,
       formatDate,
+      formatCurrency,
       currencySymbol,
       translateProductName,
       translateCustomerName
@@ -172,6 +231,16 @@ export default {
 </script>
 
 <style scoped>
+.restock-orders-card {
+  margin-bottom: 1.5rem;
+}
+
+.empty-restock {
+  padding: 2rem 1.5rem;
+  color: #94a3b8;
+  font-size: 0.938rem;
+}
+
 /* Fixed table layout to prevent column shifting */
 .orders-table {
   table-layout: fixed;
